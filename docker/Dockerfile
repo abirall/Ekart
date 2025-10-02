@@ -1,11 +1,32 @@
-FROM openjdk:8u151-jdk-alpine3.7
+# Stage 1: Build the application using Maven
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 
-EXPOSE 8070
+# Set the working directory inside the container
+WORKDIR /app
 
-ENV APP_HOME /usr/src/app
+# Copy pom.xml and download dependencies (better caching)
+COPY pom.xml .
+COPY mvnw .
+COPY .mvn .mvn
+RUN ./mvnw dependency:go-offline -B
 
-COPY target/shopping-cart-0.0.1-SNAPSHOT.jar $APP_HOME/app.jar
+# Copy the source code
+COPY src ./src
 
-WORKDIR $APP_HOME
+# Package the application (skip tests for faster build)
+RUN ./mvnw package -DskipTests
 
-ENTRYPOINT exec java -jar app.jar
+# Stage 2: Run the application using JDK
+FROM eclipse-temurin:17-jdk
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the jar from the build stage
+COPY --from=build /app/target/*.jar app.jar
+
+# Expose application port (change if not 8080)
+EXPOSE 8080
+
+# Run the app
+ENTRYPOINT ["java", "-jar", "app.jar"]
