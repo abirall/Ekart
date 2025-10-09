@@ -1,167 +1,193 @@
-# Spring Boot Shopping Cart Web App
+# Local metchine Work
 
-## About
+- Unlock port 3000-10000 (our all app will go with that)
+- Install Docker
+- Install Kubernatives Cluster
+- Install Trivy
+    - Trivy installation
+        - `sudo apt-get update`
+        
+        ```
+        sudo apt-get update
+        sudo apt-get install wget apt-transport-https gnupg lsb-release
+        ```
+        
+        - `wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null`
+        - `echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list`
+        
+        ```
+        sudo apt-get update
+        sudo apt-get install trivy -y
+        trivy --version
+        ```
+        
+- Install Jenkins
+    
+    ```
+    sudo apt update
+    sudo apt install fontconfig openjdk-21-jre
+    java -version
+    ```
+    
+    ```
+    sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+      https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc]" \
+      https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+      /etc/apt/sources.list.d/jenkins.list> /dev/null
+    sudo apt update
+    sudo apt install jenkins
+    ```
+    
+    - Configure Jenkins
+    - Install Plauins
+        
+        
+        | **Eclipse Temurin Installer** | Allows Jenkins to manage multiple JDK versions for different jobs. |
+        | --- | --- |
+        | **SonarQube Scanner Plugin** | Connects Jenkins to SonarQube for code quality analysis. |
+        | **Docker Pipeline Plugin** | Enables Docker commands and steps inside Jenkins pipelines. |
+        | Docker |  |
+        | JDK |  |
+        | SonarQube gets |  |
+        | OWASp Dependency |  |
+        | **Kubernetes API** |  |
+        - Configure Tools on jenkins
+        - System configure
+        
+        ![image.png](attachment:d0a1f459-c57d-4187-9a23-f78ca5f13124:image.png)
+        
+        - Tools Configure
+            - Add JDK installations
+            name: jdk17
+            install Automaticly 
+            install from adption.net
+            >> pic jdk version 
+            11.0.19
+            - SonarQube Sarver
+            Name: Sonar
+            install Automaticly
+            
+            Connet sonar with conar qube local sarver. 
+            make credential.
+                - Maven installations
+                Name:maven3
+                Install Automaticly
+                
+                Manage Jenkins > manage file > add a new config /- the global setting > Put name global settings.
+            
+            - jdk: jdk17
+            global Maven settng cobfig: My global Settings > genarate pipeline.
+            - Docker 
+            Name: docker 
+            install Automaticly from docker.com
+            - OWASP
+            name: dc
+            Install: automaticly
+        
+- Install Soanr Qube in a docker container  (Code Quality Check)
+`docker run -d --name sonar -p 9000:9000 sonarqube:lts-community`
+    - Configure SonarQube
+- Install Nexus in a docker container (Artifacts)
+`docker run -d --name nexus -p 8081:8081 sonatype/nexus3`
+    - Jenkins - Manage Jenkins - Jenkins files - create a new config / choose the Global maven / put a id (
 
-This is a demo project for practicing Spring + Thymeleaf. The idea was to build some basic shopping cart web app.
+# Jenkins Pipeline Setup
 
-It was made using **Spring Boot**, **Spring Security**, **Thymeleaf**, **Spring Data JPA**, **Spring Data REST and Docker**. 
-Database is in memory **H2**.
+- New Item 
+name: Ecart project
 
-There is a login and registration functionality included.
+**Build The pipeline**
 
-Users can shop for products. Each user has his own shopping cart (session functionality).
-Checkout is transactional.
+<aside>
+💡 Create a new page and select `New Role` from the list of template options to generate the format below. Get your talking points and next steps on lock.
 
-## Configuration
+</aside>
 
-### Configuration Files
+# Its a Java App E-commers Store
+https://github.com/abirall/Ekart.git
 
-Folder **src/resources/** contains config files for **shopping-cart** Spring Boot application.
+The Code 
 
-* **src/resources/application.properties** - main configuration file. Here it is possible to change admin username/password,
-as well as change the port number.
-
-## How to run
-
-There are several ways to run the application. You can run it from the command line with included Maven Wrapper, Maven or Docker. 
-
-Once the app starts, go to the web browser and visit `http://localhost:8070/home`
-
-Admin username: **admin**
-
-Admin password: **admin**
-
-User username: **user**
-
-User password: **password**
-
-### Maven Wrapper
-
-#### Using the Maven Plugin
-
-Go to the root folder of the application and type:
-```bash
-$ chmod +x scripts/mvnw
-$ scripts/mvnw spring-boot:run
 ```
+pipeline {
+    agent any
 
-#### Using Executable Jar
+    environment {
+        SONAR_HOME = tool 'sonar'
+    }
 
-Or you can build the JAR file with 
-```bash
-$ scripts/mvnw clean package
-``` 
+    tools {
+        jdk 'jdk11'
+        maven 'maven'
+    }
 
-Then you can run the JAR file:
-```bash
-$ java -jar target/shopping-cart-0.0.1-SNAPSHOT.jar
+    stages {
+        stage('Git clone') {
+            steps {
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/abirall/Ekart.git'
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                    sh "${SONAR_HOME}/bin/sonar-scanner \
+                        -Dsonar.projectName=Ekart \
+                        -Dsonar.projectKey=Ekart \
+                        -Dsonar.java.binaries=target/classes"
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withDockerRegistry(credentialsId: 'docker', url: '') {
+                    sh "docker build -t ecart:latest ."
+                    sh "docker tag ecart:latest abirall/ecart:latest"
+                    sh "docker push abirall/ecart:latest"
+                }
+            }
+        }
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'dc'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+
+        stage('Sonar Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: false
+                }
+            }
+        }
+
+        stage('Trivy File System Scan') {
+            steps {
+                sh 'trivy fs --format table -o trivy-fs-report.html .'
+            }
+        }
+
+        stage('Deploy With Docker') {
+            steps {
+                sh 'docker run -d abirall/ecart:latest'
+            }
+        }
+
+        stage('Final Check') {
+            steps {
+                echo 'Success'
+            }
+        }
+    }
+}
+
 ```
-
-### Maven
-
-Open a terminal and run the following commands to ensure that you have valid versions of Java and Maven installed:
-
-```bash
-$ java -version
-java version "1.8.0_102"
-Java(TM) SE Runtime Environment (build 1.8.0_102-b14)
-Java HotSpot(TM) 64-Bit Server VM (build 25.102-b14, mixed mode)
-```
-
-```bash
-$ mvn -v
-Apache Maven 3.3.9 (bb52d8502b132ec0a5a3f4c09453c07478323dc5; 2015-11-10T16:41:47+00:00)
-Maven home: /usr/local/Cellar/maven/3.3.9/libexec
-Java version: 1.8.0_102, vendor: Oracle Corporation
-```
-
-#### Using the Maven Plugin
-
-The Spring Boot Maven plugin includes a run goal that can be used to quickly compile and run your application. 
-Applications run in an exploded form, as they do in your IDE. 
-The following example shows a typical Maven command to run a Spring Boot application:
- 
-```bash
-$ mvn spring-boot:run
-``` 
-
-#### Using Executable Jar
-
-To create an executable jar run:
-
-```bash
-$ mvn clean package
-``` 
-
-To run that application, use the java -jar command, as follows:
-
-```bash
-$ java -jar target/shopping-cart-0.0.1-SNAPSHOT.jar
-```
-
-To exit the application, press **ctrl-c**.
-
-### Docker
-
-It is possible to run **shopping-cart** using Docker:
-
-Build Docker image:
-```bash
-$ mvn clean package
-$ docker build -t shopping-cart:dev -f docker/Dockerfile .
-```
-
-Run Docker container:
-```bash
-$ docker run --rm -i -p 8070:8070 \
-      --name shopping-cart \
-      shopping-cart:dev
-```
-
-##### Helper script
-
-It is possible to run all of the above with helper script:
-
-```bash
-$ chmod +x scripts/run_docker.sh
-$ scripts/run_docker.sh
-```
-
-## Docker 
-
-Folder **docker** contains:
-
-* **docker/shopping-cart/Dockerfile** - Docker build file for executing shopping-cart Docker image. 
-Instructions to build artifacts, copy build artifacts to docker image and then run app on proper port with proper configuration file.
-
-## Util Scripts
-
-* **scripts/run_docker.sh.sh** - util script for running shopping-cart Docker container using **docker/Dockerfile**
-
-## Tests
-
-Tests can be run by executing following command from the root of the project:
-
-```bash
-$ mvn test
-```
-
-## Helper Tools
-
-### HAL REST Browser
-
-Go to the web browser and visit `http://localhost:8070/`
-
-You will need to be authenticated to be able to see this page.
-
-### H2 Database web interface
-
-Go to the web browser and visit `http://localhost:8070/h2-console`
-
-In field **JDBC URL** put 
-```
-jdbc:h2:mem:shopping_cart_db
-```
-
-In `/src/main/resources/application.properties` file it is possible to change both
-web interface url path, as well as the datasource url.
