@@ -1,5 +1,5 @@
-# Local metchine Work
-
+# E-Cart App CI/CD Documentation
+##Ubuntu Setup
 - Unlock port 3000-10000 (our all app will go with that)
 - Install Docker
 - Install Kubernatives Cluster
